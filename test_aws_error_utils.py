@@ -75,6 +75,17 @@ def test_error_matches_single():
     assert aws_error_matches(error, 'RegionDisabled', operation_name=['AssumeRole', 'OtherOp'])
     assert not aws_error_matches(error, 'RegionDisabled', operation_name='OtherOp')
 
+def test_error_matches_message():
+    error = make_error('UpdateStack', code='ValidationError', message='No updates are to be performed.')
+    assert aws_error_matches(error, 'ValidationError')
+    assert aws_error_matches(error, 'ValidationError', code='OtherCode', message_like='No updates')
+    assert aws_error_matches(error, 'ValidationError', operation_name='UpdateStack', message_like='No updates')
+    assert aws_error_matches(error, 'ValidationError', message_like=('No updates', 'Some updates'))
+
+
+    assert not aws_error_matches(error, 'OtherCode', code='ValidationError', message_like='Some updates')
+    assert not aws_error_matches(error, 'ValidationError', operation_name='UpdateStack', message_like='Some updates')
+
 def test_error_matches_all():
     code = str(uuid.uuid4())
     error = make_error('OpName', code)

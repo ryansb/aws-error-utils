@@ -55,14 +55,16 @@ def get_aws_error_info(client_error):
 ALL_CODES = "__aws_error_utils_ALL_CODES__"
 ALL_OPERATIONS = "__aws_error_utils_ALL_OPERATIONS__"
 
-def aws_error_matches(client_error, *args, **kwargs):
+def aws_error_matches(client_error, *args, message_like=None, **kwargs):
     """Tests if a botocore.exceptions.ClientError matches the arguments.
 
     Any positional arguments and the contents of the 'code' kwarg are matched
     against the Error.Code response field.
     If the 'operation_name' kwarg is provided, it is matched against the
     operation_name property.
-    Both kwargs can either be a single string or a list of strings.
+    If the 'message_like' kwarg is provided, it is lower-cased and matched
+    against the lower-case message property.
+    All three kwargs can either be a single string or a list of strings.
     The tokens aws_error_utils.ALL_CODES and aws_error_utils.ALL_OPERATIONS
     can be used to match all error codes and operation names.
 
@@ -80,12 +82,15 @@ def aws_error_matches(client_error, *args, **kwargs):
         raise TypeError("Error is of type {}, not ClientError".format(type(client_error)))
     err_args = args + tuple((kwargs.get('code'),) if isinstance(kwargs.get('code'), str) else kwargs.get('code', tuple()))
     op_args = (kwargs.get('operation_name'),) if isinstance(kwargs.get('operation_name'), str) else kwargs.get('operation_name', tuple())
+    message_args = (message_like,) if isinstance(message_like, str) else (message_like or tuple())
     if not err_args:
         raise ValueError('No error codes provided')
     err = client_error.response.get('Error', {}).get('Code')
+    message = client_error.response.get('Error', {}).get('Message')
     err_matches = (err and (err in err_args)) or (ALL_CODES in err_args)
     op_matches = (client_error.operation_name in op_args) or (not op_args) or (ALL_OPERATIONS in op_args)
-    return err_matches and op_matches
+    message_matches = any(m.lower() in message.lower() for m in message_args) or (not message_args)
+    return err_matches and op_matches and message_matches
 
 def catch_aws_error(*args, **kwargs):
     """For use in an except statement, returns the current error's type if it matches the arguments, otherwise a non-matching error type
